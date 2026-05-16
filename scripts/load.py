@@ -1,34 +1,29 @@
 from sqlalchemy import create_engine
 import os
 from dotenv import load_dotenv
+from config.logger import get_logger
 
 load_dotenv()
+logger = get_logger("load")
 
 def load_to_postgres(df):
-    engine = create_engine(
-        f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}"
-        f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-    )
-    df.to_sql(
-        name="weather_data",
-        con=engine,
-        if_exists="append",
-        index=False
-    )
-    print(f"Successfully loaded {len(df)} row(s) into weather_data table.")
+    if df is None:
+        logger.warning("Received None from transform — skipping load")
+        return
 
-if __name__ == "__main__":
-    import pandas as pd
-    from datetime import datetime
+    try:
+        logger.info(f"Loading {len(df)} row(s) into PostgreSQL")
+        engine = create_engine(
+            f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}"
+            f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+        )
+        df.to_sql(
+            name="weather_data",
+            con=engine,
+            if_exists="append",
+            index=False
+        )
+        logger.info("Load successful")
 
-    sample_df = pd.DataFrame([{
-        "city":         "Mumbai",
-        "country":      "IN",
-        "temperature":  31.99,
-        "feels_like":   37.67,
-        "humidity":     62,
-        "weather_desc": "haze",
-        "wind_speed":   3.6,
-        "extracted_at": datetime.now()
-    }])
-    load_to_postgres(sample_df)
+    except Exception as e:
+        logger.error(f"Failed to load data into PostgreSQL: {e}")
